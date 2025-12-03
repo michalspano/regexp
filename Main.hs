@@ -14,21 +14,23 @@ data Regex
     | Literal Char
     | Kleene Regex
     | Concat Regex Regex
-    -- | Optional Regex
+    | Dot
+    | Optional Regex
     -- | Plus Regex
     deriving (Eq, Show)
 
 pp :: Regex -> String 
-pp Epsilon = "()"
+pp Epsilon = "ε"
+pp Dot     = "."
 pp (Literal l) = [l]
 pp (Kleene l@(Literal _)) = pp l ++ "*"
+pp (Kleene d@Dot) = pp d ++ "*"
 pp (Kleene r) = "(" ++ pp r ++ ")*"
 pp (Concat r1 r2) = pp r1 ++ pp r2
+pp (Optional r)   = pp r ++ "?"
 
 -- instance Arbitrary Regex where
 --    arbitrary = undefined
-
--- TODO: allow extra brackets around expression even if unnecessary
 
 {-
 - eps
@@ -41,16 +43,15 @@ pp (Concat r1 r2) = pp r1 ++ pp r2
 parseReg :: String -> Maybe(Regex,String)
 parseReg = parse reg
 
-
-
 reg :: Parser Regex
 reg = reg1 <|> reg2
 
 reg1 :: Parser Regex
-reg1  =  concat
+reg1  = concat
     <|> kleene
     <|> plus
-    <|> optional 
+    <|> optional
+    <|> dot
     <|> literal
     <|> eps
 
@@ -61,19 +62,45 @@ reg2  = do
     char ')'
     return r
 
-regWithOutConcat :: Parser Regex
-regWithOutConcat = kleene
-                <|> plus
-                <|> optional 
-                <|> literal
-                <|> eps
 
 regWithoutEpsilon :: Parser Regex
-regWithoutEpsilon  =  concat
+regWithoutEpsilon = regWithoutEpsilon1 <|> regWithoutEpsilon2
+
+regWithoutEpsilon1 :: Parser Regex
+regWithoutEpsilon1 = concat
     <|> kleene
     <|> plus
     <|> optional 
+    <|> dot
     <|> literal
+
+regWithoutEpsilon2 :: Parser Regex
+regWithoutEpsilon2 = do
+    char '('
+    r <- regWithoutEpsilon1 <|> regWithoutEpsilon2
+    char ')'
+    return r
+
+
+regWithOutConcat :: Parser Regex
+regWithOutConcat = kleene 
+                <|> plus
+                <|> optional 
+                <|> dot
+                <|> literal
+                <|> eps
+
+regWithOutEpsilonAndOptional :: Parser Regex
+regWithOutEpsilonAndOptional = concat
+    <|> kleene
+    <|> plus
+    <|> dot
+    <|> literal
+
+literal :: Parser Regex
+literal = do 
+    c <- sat isAlphaNum
+    return $ Literal c
 
 eps :: Parser Regex
 eps = do
@@ -81,10 +108,10 @@ eps = do
     char ')'
     return Epsilon
 
-literal :: Parser Regex
-literal = do 
-    c <- sat isAlphaNum
-    return $ Literal c
+dot :: Parser Regex
+dot = do 
+    c <- char '.'
+    return Dot
 
 kleene :: Parser Regex
 kleene = kleene1 <|> kleene2
@@ -99,7 +126,7 @@ kleene1 = do
 
 kleene2 :: Parser Regex
 kleene2 = do
-    r <- literal
+    r <- dot <|> literal 
     char '*'
     return $ Kleene r
 
@@ -111,7 +138,10 @@ concat = do
 
 optional :: Parser Regex
 optional = do 
-    literal <|> eps 
+    -- r <- literal -- TODO: make this take any regex expression
+    r <- regWithOutEpsilonAndOptional
+    char '?'
+    return $ Optional r
 
 plus :: Parser Regex 
 plus = plus1 <|> plus2
@@ -126,7 +156,7 @@ plus1 = do
 
 plus2 :: Parser Regex
 plus2 = do
-    r <- literal
+    r <- dot <|> literal
     char '+'
     return $ Concat r (Kleene r)
 
