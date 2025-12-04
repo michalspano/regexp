@@ -25,12 +25,13 @@ data Regex
     deriving (Eq, Show)
 
 test :: Bool 
-test = process testSuite
+test = process testSuite 1 True
     where
-        process [] = True
-        process (s:ss) = case parseReg s of
-            Just _ -> process ss
-            Nothing -> trace s $ process ss
+        process []     _ success = success
+        process (s:ss) k success = case parseReg s of
+            Just (s',"") -> trace (show k ++ ") [OK]\t" ++ s) process ss (k+1) success
+            Just (s',rest) -> trace (show k ++ ") [Failed]\t" ++ s ++ " with rest: " ++ rest) process ss (k+1) False
+            Nothing -> trace (show k++ ") [FAILED]\t: " ++ s) $ process ss (k+1) False
 
 atom = dot
     <|> literal
@@ -64,7 +65,7 @@ parseReg "" = Just (Epsilon,"")
 parseReg s  = parse reg s
 
 reg :: Parser Regex
-reg = reg1 <|> reg2
+reg = reg1 -- <|> reg2
 
 reg1 :: Parser Regex
 reg1  = concat
@@ -147,7 +148,7 @@ kleene1 = do
 
 kleene2 :: Parser Regex
 kleene2 = do
-    r <- dot <|> literal 
+    r <- dot <|> literal <|> eps
     char '*'
     return $ Kleene r
 
