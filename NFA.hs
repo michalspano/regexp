@@ -4,7 +4,7 @@ module NFA ( getNFA
 where
 
 import Parser
-import qualified Data.Map as Map
+import DMap
 
 import qualified Control.Monad.State as S
 import Data.Type.Equality (outer)
@@ -18,26 +18,10 @@ data Env = Env
     { transitions :: Transitions
     , stateCount  :: Int }
 
-type DefaultMap k v = (Map.Map k v, v)
-
-insert' :: Ord k => k -> (v -> v) -> DefaultMap k v -> DefaultMap k v
-insert' k f (map, d) = case Map.lookup k map of
-    Nothing    -> (Map.insert k (f d) map, d)
-    Just found -> (Map.insert k (f found) map, d)
-
-toList' :: Ord k => DefaultMap k v -> [(k, v)]
-toList' = Map.toList . fst
-
-empty' :: v -> DefaultMap k v
-empty' d = (Map.empty, d)
-
 emptyEnv :: Env
 emptyEnv = Env
-    { transitions = empty' (empty' [])
+    { transitions = empty (empty [])
     , stateCount  = 0 }
-
--- Kleene Regex
--- Concat Regex Regex
 
 compileNFA :: Regex -> S.State Env NFA
 compileNFA reg = do
@@ -48,6 +32,8 @@ compileNFA reg = do
 getNFA :: Regex -> NFA
 getNFA reg = fst $ S.runState (compileNFA reg) emptyEnv
 
+eps :: Char
+eps = 'ε'
 
 {-
 TODO:
@@ -63,63 +49,59 @@ constructNFA :: Regex -> S.State Env (State, State)
 constructNFA Epsilon = do
     currentState <- getNextState
     nextState <- getNextState
-    S.modify(\e -> e{ transitions = insert' currentState ( insert' 'ε' (\nextStates -> nextState : nextStates) ) (transitions e) })
+    createEdge currentState nextState eps
     return (currentState, nextState)
 
 constructNFA Dot = do
     currentState <- getNextState
     nextState <- getNextState
-    S.modify(\e -> e{ transitions = insert' currentState ( insert' '.' (\nextStates -> nextState : nextStates) ) (transitions e) })
+    createEdge currentState nextState '.'
     return (currentState, nextState)
 
 constructNFA (Literal l) = do
     currentState <- getNextState
     nextState <- getNextState
-    S.modify(\e -> e{ transitions = insert' currentState ( insert' l (\nextStates -> nextState : nextStates) ) (transitions e) })
+    createEdge currentState nextState l
     return (currentState, nextState)
 
 constructNFA (Kleene exp) = do
     currentState <- getNextState
     localFinalState <- getNextState
-    -- kleeneStart <- getNextState
 
     -- create the kleeneEnd
     (innerStart, innerEnd) <- constructNFA exp
 
     -- connect current state with kleeneStart
-    S.modify(\e -> e{ transitions = insert' currentState ( insert' 'ε' (\nextStates -> innerStart : nextStates) ) (transitions e) })
+    createEdge currentState innerStart eps
 
     -- connect innerEnd with kleeneStart
-    S.modify(\e -> e{ transitions = insert' innerEnd ( insert' 'ε' (\nextStates -> innerStart : nextStates) ) (transitions e) })
+    createEdge innerEnd innerStart eps
 
     -- connect innerEnd with localFinal
-    S.modify(\e -> e{ transitions = insert' innerEnd ( insert' 'ε' (\nextStates -> localFinalState : nextStates) ) (transitions e) })
+    createEdge innerEnd localFinalState eps
 
     -- connect current state with localFinal
-    S.modify(\e -> e{ transitions = insert' currentState ( insert' 'ε' (\nextStates -> localFinalState : nextStates) ) (transitions e) })
-    
+    createEdge currentState localFinalState eps
 
     return (currentState, localFinalState)
 
 constructNFA (Concat l r) = do
-    lStart <- getNextState
-    rStart <- getNextState
-
     (lStart, lEnd) <- constructNFA l
     (rStart, rEnd) <- constructNFA r
 
-    -- localAccept <- getNextState
-
-    -- connect this state with lStart
-    -- S.modify(\e -> e{ transitions = insert' lStart ( insert' 'ε' (\nextStates -> lStart : nextStates) ) (transitions e) })
-
     -- connect lEnd to rStart
-    S.modify(\e -> e{ transitions = insert' lEnd ( insert' 'ε' (\nextStates -> rStart : nextStates) ) (transitions e) })
-
-    -- connect rEnd to localAccept
-    -- S.modify(\e -> e{ transitions = insert' rEnd ( insert' 'ε' (\nextStates -> localAccept : nextStates) ) (transitions e) })
+    createEdge lEnd rStart eps
 
     return (lStart, rEnd)
+
+
+createEdge :: State -> State -> Char -> S.State Env ()
+createEdge origin target c =
+    S.modify(\e ->
+        e{ transitions = insert origin
+            (insert c (\nextStates -> target : nextStates) )
+            (transitions e)
+        })
 
 
 getNextState :: S.State Env State
@@ -132,25 +114,33 @@ getNextState = do
 -- create graphviz-compatible string from an NFA
 stringifyNFA :: NFA -> String
 stringifyNFA (NFA start end ts) =
-    "digraph G{\n" ++ 
-        "\t{\n" ++ 
-            -- "\t\tN" ++ show start ++ "[shape=star]" ++ "\n" ++
-            "\t\tS" ++ show end ++ "[shape=doublecircle]" ++ "\n" ++
-        "\t}\n" ++
-        "empty [label= \"\", shape=none,height=.0,width=.0]\n" ++
-        "\tempty -> S" ++ show start ++ "\n" ++
-        body ++
-    "}"
+    unlines [ "digraph G{"
+           , headers
+           , staticBody
+           , body, "}" ]
 
     where
+        headers = unlines $ map indent
+            [ "{"
+            , "S" ++ show end ++ "[shape=doublecircle]"
+            , "}"
+            ]
+
+        staticBody = unlines $ map indent
+            [ "empty [label=\"\", shape=none,height=.0,width=.0]"
+            , "empty -> S" ++ show start ]
+
+        indent xs = if null xs then "" else "\t" ++ xs
+
         body = transitionsToString ts
         transitionsToString :: Transitions -> String
-        transitionsToString ts = go (toList' ts) ""
+        transitionsToString ts = go (toList ts) ""
             where
                 go :: [(State, DefaultMap Char [State])] -> String -> String
                 go [] accu       = accu
-                go ((state, dMap):tss) accu = go tss (accu ++ inner state (toList' dMap))
+                go ((state, dMap):tss) accu = go tss (accu ++ inner state (toList dMap))
 
+        -- TODO: use unlines
         inner :: State -> [(Char, [State])] -> String 
         inner start xs =
             foldr
