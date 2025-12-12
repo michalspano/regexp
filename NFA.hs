@@ -41,8 +41,7 @@ emptyEnv = Env
 
 compileNFA :: Regex -> S.State Env NFA
 compileNFA reg = do
-    init <- getNextState
-    (start, end) <- constructNFA init reg
+    (start, end) <- constructNFA reg
     ts <- S.gets transitions
     return $ NFA start end ts
 
@@ -60,34 +59,38 @@ put start/end into the state monad
 =====> not sure if we actually have to put it in the state monad; I think we can actually just keep them as function parameters/return values in constructNFA
 -}
 
-constructNFA :: State -> Regex -> S.State Env (State, State)
-constructNFA currentState Epsilon = do
+constructNFA :: Regex -> S.State Env (State, State)
+constructNFA Epsilon = do
+    currentState <- getNextState
     nextState <- getNextState
     S.modify(\e -> e{ transitions = insert' currentState ( insert' 'ε' (\nextStates -> nextState : nextStates) ) (transitions e) })
     return (currentState, nextState)
 
-constructNFA currentState Dot = do
+constructNFA Dot = do
+    currentState <- getNextState
     nextState <- getNextState
     S.modify(\e -> e{ transitions = insert' currentState ( insert' '.' (\nextStates -> nextState : nextStates) ) (transitions e) })
     return (currentState, nextState)
 
-constructNFA currentState (Literal l) = do
+constructNFA (Literal l) = do
+    currentState <- getNextState
     nextState <- getNextState
     S.modify(\e -> e{ transitions = insert' currentState ( insert' l (\nextStates -> nextState : nextStates) ) (transitions e) })
     return (currentState, nextState)
 
-constructNFA currentState (Kleene exp) = do
+constructNFA (Kleene exp) = do
+    currentState <- getNextState
     localFinalState <- getNextState
-    kleeneStart <- getNextState
+    -- kleeneStart <- getNextState
+
+    -- create the kleeneEnd
+    (innerStart, innerEnd) <- constructNFA exp
 
     -- connect current state with kleeneStart
-    S.modify(\e -> e{ transitions = insert' currentState ( insert' 'ε' (\nextStates -> kleeneStart : nextStates) ) (transitions e) })
-    
-    -- create the kleeneEnd
-    (_, innerEnd) <- constructNFA kleeneStart exp
+    S.modify(\e -> e{ transitions = insert' currentState ( insert' 'ε' (\nextStates -> innerStart : nextStates) ) (transitions e) })
 
     -- connect innerEnd with kleeneStart
-    S.modify(\e -> e{ transitions = insert' innerEnd ( insert' 'ε' (\nextStates -> kleeneStart : nextStates) ) (transitions e) })
+    S.modify(\e -> e{ transitions = insert' innerEnd ( insert' 'ε' (\nextStates -> innerStart : nextStates) ) (transitions e) })
 
     -- connect innerEnd with localFinal
     S.modify(\e -> e{ transitions = insert' innerEnd ( insert' 'ε' (\nextStates -> localFinalState : nextStates) ) (transitions e) })
@@ -98,15 +101,25 @@ constructNFA currentState (Kleene exp) = do
 
     return (currentState, localFinalState)
 
+constructNFA (Concat l r) = do
+    lStart <- getNextState
+    rStart <- getNextState
 
-    {-
-    4 <- getNextState
-    2 <- constructNFA epsilon 
-    3 <- constructNFA exp
-    make transition from 3 to 2
-    make transition from 3 to 4
-    make transition from 1 to 4
-    -}
+    (lStart, lEnd) <- constructNFA l
+    (rStart, rEnd) <- constructNFA r
+
+    -- localAccept <- getNextState
+
+    -- connect this state with lStart
+    -- S.modify(\e -> e{ transitions = insert' lStart ( insert' 'ε' (\nextStates -> lStart : nextStates) ) (transitions e) })
+
+    -- connect lEnd to rStart
+    S.modify(\e -> e{ transitions = insert' lEnd ( insert' 'ε' (\nextStates -> rStart : nextStates) ) (transitions e) })
+
+    -- connect rEnd to localAccept
+    -- S.modify(\e -> e{ transitions = insert' rEnd ( insert' 'ε' (\nextStates -> localAccept : nextStates) ) (transitions e) })
+
+    return (lStart, rEnd)
 
 
 getNextState :: S.State Env State
