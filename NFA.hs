@@ -1,16 +1,21 @@
 module NFA ( getNFA
            , stringifyNFA
+           , epsilonClosure
            )
 where
 
 import Parser
 import DMap
+import qualified Data.Map as M
 
+import Prelude hiding (lookup)
 import qualified Control.Monad.State as S
 import Data.Type.Equality (outer)
+import qualified Data.IntMap as Map
 
 type State = Int
 type Transitions = DefaultMap State (DefaultMap Char [State])
+type EpsClosure = DefaultMap State [State]
 
 -- Start-State, Accept-State, Transitions
 data NFA = NFA State State Transitions deriving Show
@@ -33,18 +38,10 @@ getNFA :: Regex -> NFA
 getNFA reg = fst $ S.runState (compileNFA reg) emptyEnv
 
 eps :: Char
-eps = 'ε'
+eps = '\949'
 
-{-
-TODO:
-put start/end into the state monad
-=> constructNFA returns the start and end of its expression
-=> when we enter a sub-automaton, we can use these returned values to make our logic sound
-    => so we kind of have to reset them when we enter a new automaton
 
-=====> not sure if we actually have to put it in the state monad; I think we can actually just keep them as function parameters/return values in constructNFA
--}
-
+-- Construction of Epsilon-NFA
 constructNFA :: Regex -> S.State Env (State, State)
 constructNFA Epsilon = do
     currentState <- getNextState
@@ -68,13 +65,13 @@ constructNFA (Kleene exp) = do
     currentState <- getNextState
     localFinalState <- getNextState
 
-    -- create the kleeneEnd
+    -- create the inner automaton
     (innerStart, innerEnd) <- constructNFA exp
 
-    -- connect current state with kleeneStart
+    -- connect current state with inner start
     createEdge currentState innerStart eps
 
-    -- connect innerEnd with kleeneStart
+    -- connect innerEnd with inner start
     createEdge innerEnd innerStart eps
 
     -- connect innerEnd with localFinal
@@ -102,7 +99,6 @@ createEdge origin target c =
             (insert c (\nextStates -> target : nextStates) )
             (transitions e)
         })
-
 
 getNextState :: S.State Env State
 getNextState = do
@@ -154,3 +150,31 @@ stringifyNFA (NFA start end ts) =
         helper li = if null li then "" else "\n"
         createEdge :: State -> State -> Char -> String
         createEdge s t l = "\tS" ++ show s ++ " -> S" ++ show t ++ " [label=" ++ [l] ++ "]\n"
+
+
+-- compute the epsilon clojure of a given Epsilon-NFA
+epsilonClosure :: NFA -> DefaultMap State [State]
+epsilonClosure (NFA start end (outer,d)) = go adjacencyEpsList
+    where 
+        adjacencyEpsList :: DefaultMap State [State]
+        adjacencyEpsList = create (M.fromList $ map (\(s,ts) -> (s, lookup eps ts)) (M.toList outer)) []
+
+        go :: DefaultMap State [State] -> DefaultMap State [State]
+        go m@(map, _) = create (foldr (\elem accu -> M.union accu (fst . fst $ S.execState (dfs elem elem m) emptyDFSState)) M.empty (M.keys map)) []
+
+
+
+emptyDFSState :: (DefaultMap State [State], [State])
+emptyDFSState = (empty [], [])
+
+-- TODO: prettify
+dfs :: State -> State -> DefaultMap State [State] -> S.State (DefaultMap State [State], [State]) ()
+dfs target current adjacency = do
+    (accu, seen) <- S.get
+    let neighbours = filter (`notElem` seen) (lookup current adjacency)
+    let newAccu = insert target (++ neighbours) accu
+    S.modify $ const(newAccu, seen ++ neighbours)
+    go neighbours
+    where
+        go [] = return ()
+        go (n:ns) = dfs target n adjacency

@@ -2,6 +2,7 @@ module Main where
 
 import Parser
 import NFA     -- * @constructNFA@
+import DMap (toString)
 
 
 -- TODO: make this a IO-Maybe-T
@@ -16,6 +17,7 @@ main = do
             putStrLn $ "Token received: " ++ show p'
             let nfa = getNFA p'
             putStrLn $ "Our NFA: " ++ show nfa
+            putStrLn $ "With the epsilon-clojure: " ++ toString (epsilonClosure nfa)
             writeFile "tmp.dot" (stringifyNFA nfa)
         Just (p', rest) -> do
             putStrLn $ "Error: Input not read fully. Rest: " ++ show rest 
