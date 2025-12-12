@@ -16,6 +16,7 @@ main = do
             putStrLn $ "Token received: " ++ show p'
             let nfa = getNFA p'
             putStrLn $ "Our NFA: " ++ show nfa
+            writeFile "tmp.dot" (stringifyNFA nfa)
         Just (p', rest) -> do
             putStrLn $ "Error: Input not read fully. Rest: " ++ show rest 
             putStrLn $ pp p'
