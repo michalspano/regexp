@@ -1,4 +1,5 @@
-module NFA ( getNFA
+module NFA ( NFA,
+             getNFA
            , stringifyNFA
            , epsilonClosure
            )
@@ -6,6 +7,7 @@ where
 
 import Parser
 import DMap
+import Datatypes
 import qualified Data.Map as M
 
 import Prelude hiding (lookup)
@@ -13,14 +15,10 @@ import qualified Control.Monad.State as S
 import Data.Type.Equality (outer)
 import qualified Data.IntMap as Map
 
-type State = Int
-type Transitions = DefaultMap State (DefaultMap Char [State])
-type EpsClosure = DefaultMap State [State]
-
 -- Start-State, Accept-State, Transitions
-data NFA = NFA State State Transitions deriving Show
+
 data Env = Env
-    { transitions :: Transitions
+    { transitions :: NFATransitions
     , stateCount  :: Int }
 
 emptyEnv :: Env
@@ -39,6 +37,9 @@ getNFA reg = fst $ S.runState (compileNFA reg) emptyEnv
 
 eps :: Char
 eps = '\949'
+
+dot :: Char
+dot = '•'
 
 
 -- Construction of Epsilon-NFA
@@ -129,7 +130,7 @@ stringifyNFA (NFA start end ts) =
         indent xs = if null xs then "" else "\t" ++ xs
 
         body = transitionsToString ts
-        transitionsToString :: Transitions -> String
+        transitionsToString :: NFATransitions -> String
         transitionsToString ts = go (toList ts) ""
             where
                 go :: [(State, DefaultMap Char [State])] -> String -> String
@@ -149,23 +150,29 @@ stringifyNFA (NFA start end ts) =
         -- TODO: prettify this shit
         helper li = if null li then "" else "\n"
         createEdge :: State -> State -> Char -> String
-        createEdge s t l = "\tS" ++ show s ++ " -> S" ++ show t ++ " [label=" ++ [l] ++ "]\n"
+        createEdge s t l = "\tS" ++ show s ++ " -> S" ++ show t ++ " [label=" ++ formatChar l ++ "]\n"
+            where
+                formatChar :: Char -> String
+                formatChar '.' = [dot]
+                formatChar l = [l]
 
 
 -- compute the epsilon clojure of a given Epsilon-NFA
-epsilonClosure :: NFA -> DefaultMap State [State]
-epsilonClosure (NFA start end (outer,d)) = go adjacencyEpsList
+epsilonClosure :: NFA -> EpsClosure
+-- TODO: prettify, right now we manually add the AcceptState because it is not in the 
+-- transitions; we might have to do the same for the automaton that only contains the starting node (automton for the ""-regex)
+epsilonClosure (NFA start end (outer,d)) = insert end (const [end]) (go adjacencyEpsList)
     where 
         adjacencyEpsList :: DefaultMap State [State]
         adjacencyEpsList = create (M.fromList $ map (\(s,ts) -> (s, lookup eps ts)) (M.toList outer)) []
 
         go :: DefaultMap State [State] -> DefaultMap State [State]
-        go m@(map, _) = create (foldr (\elem accu -> M.union accu (fst . fst $ S.execState (dfs elem elem m) emptyDFSState)) M.empty (M.keys map)) []
+        go m@(map, _) = create (foldr (\elem accu -> M.union accu (fst . fst $ S.execState (dfs elem elem m) (emptyDFSState elem))) M.empty (M.keys map)) []
 
 
 
-emptyDFSState :: (DefaultMap State [State], [State])
-emptyDFSState = (empty [], [])
+emptyDFSState :: State -> (DefaultMap State [State], [State])
+emptyDFSState initial = (insert initial (const [initial]) (empty []), [])
 
 -- TODO: prettify
 dfs :: State -> State -> DefaultMap State [State] -> S.State (DefaultMap State [State], [State]) ()

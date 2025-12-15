@@ -3,6 +3,7 @@ module DMap ( empty
             , lookup
             , toList
             , create
+            , keys
             , toString
             , DefaultMap ) where
 
@@ -30,6 +31,9 @@ lookup k (m, d) = case Map.lookup k m of
 
 toList :: Ord k => DefaultMap k v -> [(k, v)]
 toList = Map.toList . fst
+
+keys :: Ord k => DefaultMap k v -> [k]
+keys = Map.keys . fst
 
 toString :: (Show k, Show v) => DefaultMap k v -> String 
 toString (m, _) = show m
