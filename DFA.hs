@@ -1,8 +1,10 @@
-module DFA (fromNFA, fromNFAMulti) where
+module DFA (fromNFA, fromNFAMulti, flattenToDFA) where
 
-import qualified DMap
+import DMap (DefaultMap)
 import Data.Map (Map)
+import qualified DMap
 import qualified Data.Map as Map
+
 import NFA (epsilonClosure)
 import Data.List (union, intercalate)
 import Datatypes
@@ -10,11 +12,38 @@ import Datatypes
 import Control.Monad (when)
 import qualified Control.Monad.State as S
 import Control.Monad.RWS (modify)
+import Text.Parsec (updateState)
 
+fromNFA :: NFA -> DFA
+fromNFA = flattenToDFA . fromNFAMulti 
 
-fromNFA :: (NFA, EpsClosure) -> DFA
-fromNFA (nfa, epsClosure) = undefined
+flattenToDFA :: PowerSetDFA -> DFA
+flattenToDFA (PowerSetDFA start accepts ts) = let newLabels = newLabelings (DMap.keys ts) 0 (DMap.empty $ -1) in 
+        DFA (DMap.lookup start newLabels)
+            (map (`DMap.lookup` newLabels) accepts)
+            (foldr
+                ( \key accu -> DMap.union accu ( updateKey key newLabels (DMap.empty Map.empty) ) )
+                (DMap.empty Map.empty)
+                (DMap.keys ts)
+            )
+    where
+        newLabelings :: [MultiState] -> Int -> DefaultMap MultiState State -> DefaultMap MultiState State
+        newLabelings [] _ labelings     = labelings
+        newLabelings (l:ls) n labelings = newLabelings ls (n+1) (DMap.insert l (const n) labelings)
+        updateKey :: MultiState -> DefaultMap MultiState State -> DFATransitions -> DFATransitions
+        updateKey key labeling accu =
+            -- compute the new values
+            let newValues = Map.map (\ms -> DMap.lookup ms labeling) (DMap.lookup key ts) in 
+            -- insert newValues into accu at newLabel
+            DMap.insert (DMap.lookup key labeling) (const newValues) accu -- compute the new keys
 
+            where
+                -- 
+                updateAllValues :: Map Char MultiState -> DefaultMap MultiState State -> Map Char State
+                updateAllValues tsForChar newLabelings = Map.map (\val -> DMap.lookup val newLabelings) tsForChar
+
+                getSymbols :: PowerSetDFATransitions -> MultiState -> [Char]
+                getSymbols ts ms = Map.keys (DMap.lookup ms ts)
 
 
 -- S.State ([MultiState], PowerSetDFATransitions, [MultiState]) ()
@@ -32,13 +61,14 @@ emptyEnv = Env {
 eps :: Char
 eps = '\949'
 
-fromNFAMulti :: (NFA, EpsClosure) -> PowerSetDFA
-fromNFAMulti pair@(nfa@(NFA start _ ts),epsClosure) =
+-- fromNFAMulti :: (NFA, EpsClosure) -> PowerSetDFA
+fromNFAMulti :: NFA -> PowerSetDFA
+fromNFAMulti nfa@(NFA start _ ts) =
     PowerSetDFA initStart (acceptingStates finalState) (transitions finalState)
     where
+        epsClosure = epsilonClosure nfa
         initStart  = DMap.lookup start epsClosure
-        finalState = S.execState (fromNFAMulti' pair initStart) emptyEnv
-
+        finalState = S.execState (fromNFAMulti' (nfa, epsClosure) initStart) emptyEnv
 {-
 Helper-functions needed:
 - get all the symbols used by a multi-state
