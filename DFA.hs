@@ -16,17 +16,28 @@ fromNFA :: (NFA, EpsClosure) -> DFA
 fromNFA (nfa, epsClosure) = undefined
 
 
+
+-- S.State ([MultiState], PowerSetDFATransitions, [MultiState]) ()
+data Env = Env
+    { acceptingStates :: [MultiState]
+    , transitions     :: PowerSetDFATransitions
+    , seen            :: [MultiState] }
+
+emptyEnv :: Env
+emptyEnv = Env {
+    acceptingStates = [],
+    transitions     = DMap.empty Map.empty,
+    seen            = []
+}
 eps :: Char
 eps = '\949'
 
-
 fromNFAMulti :: (NFA, EpsClosure) -> PowerSetDFA
--- fromNFAMulti pair@(nfa@(NFA start _ ts),epsClosure) = uncurry (PowerSetDFA [start]) finalState
-fromNFAMulti pair@(nfa@(NFA start _ ts),epsClosure) = PowerSetDFA initStart (frst finalState) (scnd finalState)
+fromNFAMulti pair@(nfa@(NFA start _ ts),epsClosure) =
+    PowerSetDFA initStart (acceptingStates finalState) (transitions finalState)
     where
         initStart  = DMap.lookup start epsClosure
-        emptyState = ([], DMap.empty Map.empty, [])
-        finalState = S.execState (fromNFAMulti' pair initStart) emptyState
+        finalState = S.execState (fromNFAMulti' pair initStart) emptyEnv
 
 {-
 Helper-functions needed:
@@ -35,30 +46,22 @@ Helper-functions needed:
 - For all states in a multi-state, get the epsilon-clojure
 - Check if the final multi-state contains the accepting-state
 -}
-fromNFAMulti' :: (NFA, EpsClosure) -> MultiState -> S.State ([MultiState], PowerSetDFATransitions, [MultiState]) ()
-fromNFAMulti' pair@(nfa@(NFA start _ ts), epsClosure) currentState = do
-    -- call recursively on new added multistates
-    S.modify (\(a, b, seen) -> (a, b, currentState:seen))
-    stat <- S.get
+
+fromNFAMulti' :: (NFA, EpsClosure) -> MultiState -> S.State Env ()
+fromNFAMulti' dtype@(nfa@(NFA start _ ts),epsClosure) currentState = do
+    -- mark current state as seen
+    S.modify (\s -> s{seen = currentState:seen s})
     let symbols = getSymbols ts currentState
     let reachableStates = foldr (\char accu -> Map.insert char (getReachableStates (ts, currentState) char) accu) Map.empty symbols
     let reachableStatesWithClosure = Map.map (\multiState -> getMSClosure (epsClosure, multiState)) reachableStates 
-    -- put this into transitions
-    S.modify (\(as, ts, seen) -> (as, DMap.insert currentState (const reachableStatesWithClosure) ts, seen))
-    -- if hasAcceptState, put this into acceptStates
-    when (hasAcceptState (nfa, currentState)) $ S.modify (\(acceptStates, ts, seen) -> (currentState:acceptStates, ts, seen) )
-    let newStates = filter (\e -> not $ e `elem` (thrd stat) ) (Map.elems reachableStatesWithClosure)
-    mapM_ (fromNFAMulti' pair) newStates
-
-
-frst :: (a, b, c) -> a
-frst (e, _, _) = e
-
-scnd :: (a, b, c) -> b
-scnd (_, e, _) = e
-
-thrd :: (a, b, c) -> c
-thrd (_, _, e) = e
+    -- mark all the computed multistates as reachable for the current state by putting them into `transitions`
+    S.modify(\s -> s{transitions = DMap.insert currentState (const reachableStatesWithClosure) (transitions s)})
+    -- if an accepting state is part of the `currentState`, put `currentstate` into env
+    when (hasAcceptState (nfa, currentState)) $ S.modify (\s-> s{ acceptingStates = currentState : acceptingStates s } )
+    -- Call recursively on reachable multistates which have not been seen yet
+    seen' <- S.gets seen
+    let newStates = filter (`notElem` seen') (Map.elems reachableStatesWithClosure)
+    mapM_ (fromNFAMulti' dtype) newStates
 
 getSymbols :: NFATransitions -> MultiState -> [Char]
 getSymbols nfaTs = foldr (\state accu -> accu ++ filter (/= eps) (DMap.keys (DMap.lookup state nfaTs))) []
