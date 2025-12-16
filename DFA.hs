@@ -61,7 +61,6 @@ emptyEnv = Env {
 eps :: Char
 eps = '\949'
 
--- fromNFAMulti :: (NFA, EpsClosure) -> PowerSetDFA
 fromNFAMulti :: NFA -> PowerSetDFA
 fromNFAMulti nfa@(NFA start _ ts) =
     PowerSetDFA initStart (acceptingStates finalState) (transitions finalState)
@@ -69,18 +68,12 @@ fromNFAMulti nfa@(NFA start _ ts) =
         epsClosure = epsilonClosure nfa
         initStart  = DMap.lookup start epsClosure
         finalState = S.execState (fromNFAMulti' (nfa, epsClosure) initStart) emptyEnv
-{-
-Helper-functions needed:
-- get all the symbols used by a multi-state
-- For one symbol, get all the states reachable as a multi-state
-- For all states in a multi-state, get the epsilon-clojure
-- Check if the final multi-state contains the accepting-state
--}
 
 fromNFAMulti' :: (NFA, EpsClosure) -> MultiState -> S.State Env ()
 fromNFAMulti' dtype@(nfa@(NFA start _ ts),epsClosure) currentState = do
     -- mark current state as seen
     S.modify (\s -> s{seen = currentState:seen s})
+
     let symbols = getSymbols ts currentState
     let reachableStates = foldr (\char accu -> Map.insert char (getReachableStates (ts, currentState) char) accu) Map.empty symbols
     let reachableStatesWithClosure = Map.map (\multiState -> getMSClosure (epsClosure, multiState)) reachableStates 

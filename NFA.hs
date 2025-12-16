@@ -16,6 +16,7 @@ import Parser (Regex(..))
 import Prelude hiding (lookup)
 import qualified Control.Monad.State as S
 
+
 -- Start-State, Accept-State, Transitions
 
 data Env = Env
@@ -110,16 +111,6 @@ getNextState = do
 emptyDFSState :: State -> (DefaultMap State [State], [State])
 emptyDFSState initial = (DMap.insert initial (const [initial]) (DMap.empty []), [])
 
-dfs :: State -> State -> DefaultMap State [State] -> S.State (DefaultMap State [State], [State]) ()
-dfs target current adjacency = do
-    (accu, seen) <- S.get
-    let neighbours = filter (`notElem` seen) (DMap.lookup current adjacency)
-    let newAccu = DMap.insert target (++ neighbours) accu
-    S.modify $ const(newAccu, seen ++ neighbours)
-    go neighbours
-    where
-        go [] = return ()
-        go (n:ns) = dfs target n adjacency
 
 -- compute the epsilon clojure of a given Epsilon-NFA
 epsilonClosure :: NFA -> EpsClosure
@@ -131,4 +122,15 @@ epsilonClosure (NFA start end (outer,d)) = DMap.insert end (const [end]) (go adj
         adjacencyEpsList = DMap.create (Map.fromList $ map (\(s,ts) -> (s, DMap.lookup eps ts)) (Map.toList outer)) []
 
         go :: DefaultMap State [State] -> DefaultMap State [State]
-        go m@(map, _) = DMap.create (foldr (\elem accu -> Map.union accu (fst . fst $ S.execState (dfs elem elem m) (emptyDFSState elem))) Map.empty (Map.keys map)) []
+        go m = DMap.create (foldr (\elem accu -> Map.union accu (fst . fst $ S.execState (dfs elem elem m) (emptyDFSState elem))) Map.empty (DMap.keys m)) []
+
+dfs :: State -> State -> DefaultMap State [State] -> S.State (DefaultMap State [State], [State]) ()
+dfs target current adjacency = do
+    (accu, seen) <- S.get
+    if current `elem` seen then
+        return ()
+    else do
+        let seen' = current:seen
+        S.modify (\(accu', _) -> (DMap.insert target (current:) accu', seen'))
+        let neighbours = DMap.lookup current adjacency
+        mapM_ (\n -> dfs target n adjacency ) neighbours

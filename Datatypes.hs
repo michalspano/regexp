@@ -50,10 +50,11 @@ stringifyPowerSetDFA (PowerSetDFA startMs endMss ts) =
            , body, "}" ]
 
     where
-        headers = unlines $ map indent $
-            "{" :
-                [indent "S" ++ formatMultiState ms ++ "[shape=doublecircle]" | ms <- endMss] ++
-            ["}"]
+        headers = unlines
+            [ indent "{"
+            , unlines $ map (\state -> (indent . indent) $ "S" ++ formatMultiState state ++ "[shape=doublecircle]") endMss
+            , indent "}"
+            ]
 
         staticBody = unlines $ map indent
             [ "empty [label=\"\", shape=none,height=.0,width=.0]"
@@ -65,16 +66,13 @@ stringifyPowerSetDFA (PowerSetDFA startMs endMss ts) =
             where
                 go :: [(MultiState, Map Char MultiState)] -> String -> String
                 go [] accu       = accu
-                go ((state, dMap):tss) accu = go tss (accu ++ inner state (Map.toList dMap))
+                go ((state, dMap):tss) accu = go tss (accu ++ createEdges state (Map.toList dMap))
 
-        -- TODO: use unlines
-        inner :: MultiState -> [(Char, MultiState)] -> String 
-        inner start xs = foldr (\(ch,ms) acc -> acc ++ createEdge start ms ch) "" xs
-
-        -- TODO: prettify this shit
-        --helper li = if null li then "" else "\n"
+        createEdges :: MultiState -> [(Char, MultiState)] -> String 
+        createEdges start xs = unlines [createEdge start ms ch | (ch, ms) <- xs]
+       
         createEdge :: MultiState -> MultiState -> Char -> String
-        createEdge s t l = "\tS" ++ formatMultiState s ++ " -> S" ++ formatMultiState t ++ " [label=" ++ formatChar l ++ "]\n"
+        createEdge s t l = "\tS" ++ formatMultiState s ++ " -> S" ++ formatMultiState t ++ " [label=" ++ formatChar l ++ "]"
 
         formatMultiState :: MultiState -> String
         formatMultiState = concatMap show
@@ -89,7 +87,7 @@ stringifyDFA (DFA start ends ts) =
            , body, "}" ]
 
     where
-        headers = unlines $ map indent
+        headers = unlines
             [ indent "{"
             , unlines $ map (\state -> (indent . indent) $ "S" ++ show state ++ "[shape=doublecircle]") ends
             , indent "}"
@@ -154,9 +152,6 @@ formatChar :: Char -> String
 formatChar '.' = "•"
 formatChar l = [l]
 
---createEdge :: State -> State -> Char -> String
---createEdge s t l = "\tS" ++ show s ++ " -> S" ++ show t ++ " [label=" ++ formatChar l ++ "]\n"
-
 indent :: String -> String
 indent xs = if null xs then "" else "\t" ++ xs
 
@@ -168,6 +163,5 @@ createTransition s t l = "\tS" ++ show s ++ " -> S" ++ show t ++
                         " [label=" ++ formatChar l ++ "]"
     where
         formatChar :: Char -> String
-        -- TODO: utf-8
-        formatChar '.' = "•"
+        formatChar '.' = "\8226"
         formatChar l = [l]

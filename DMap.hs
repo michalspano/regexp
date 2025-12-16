@@ -9,7 +9,7 @@ module DMap ( empty
             , DefaultMap ) where
 
 import Data.Map (Map)
-import Prelude hiding (lookup)
+import Prelude hiding (lookup) -- clashes with export @DMap.lookup@
 import qualified Data.Map as Map
 
 type DefaultMap k v = (Map k v, v)
@@ -20,8 +20,6 @@ empty d = (Map.empty, d)
 create :: Map k v -> v -> DefaultMap k v
 create m v = (m, v)
 
--- TODO: if you insert the default value into the map then nothing happens
--- => to save memory
 insert :: Ord k => k -> (v -> v) -> DefaultMap k v -> DefaultMap k v
 insert k f (map, d) = case Map.lookup k map of
     Nothing    -> (Map.insert k (f d) map, d)
