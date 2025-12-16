@@ -1,19 +1,20 @@
-module NFA ( NFA,
-             getNFA
-           , stringifyNFA
-           , epsilonClosure
-           )
+module NFA
+( NFA
+ ,fromRegex
+ ,epsilonClosure
+)
 where
 
-import Parser
-import DMap
+import qualified DMap
+import qualified Data.Map as Map
+import DMap (DefaultMap)
+import Data.Map (Map)
+
 import Datatypes
-import qualified Data.Map as M
+import Parser (Regex(..))
 
 import Prelude hiding (lookup)
 import qualified Control.Monad.State as S
-import Data.Type.Equality (outer)
-import qualified Data.IntMap as Map
 
 -- Start-State, Accept-State, Transitions
 
@@ -23,7 +24,7 @@ data Env = Env
 
 emptyEnv :: Env
 emptyEnv = Env
-    { transitions = empty (empty [])
+    { transitions = DMap.empty (DMap.empty [])
     , stateCount  = 0 }
 
 compileNFA :: Regex -> S.State Env NFA
@@ -32,15 +33,12 @@ compileNFA reg = do
     ts <- S.gets transitions
     return $ NFA start end ts
 
-getNFA :: Regex -> NFA
-getNFA reg = fst $ S.runState (compileNFA reg) emptyEnv
+fromRegex :: Regex -> NFA
+fromRegex reg = fst $ S.runState (compileNFA reg) emptyEnv
 
+-- TODO: move to util
 eps :: Char
 eps = '\949'
-
-dot :: Char
-dot = '•'
-
 
 -- Construction of Epsilon-NFA
 constructNFA :: Regex -> S.State Env (State, State)
@@ -96,8 +94,8 @@ constructNFA (Concat l r) = do
 createEdge :: State -> State -> Char -> S.State Env ()
 createEdge origin target c =
     S.modify(\e ->
-        e{ transitions = insert origin
-            (insert c (\nextStates -> target : nextStates) )
+        e{ transitions = DMap.insert origin
+            (DMap.insert c (\nextStates -> target : nextStates) )
             (transitions e)
         })
 
@@ -108,80 +106,29 @@ getNextState = do
     S.modify (const s{ stateCount = c + 1})
     return c
 
--- create graphviz-compatible string from an NFA
-stringifyNFA :: NFA -> String
-stringifyNFA (NFA start end ts) =
-    unlines [ "digraph G{"
-           , headers
-           , staticBody
-           , body, "}" ]
-
-    where
-        headers = unlines $ map indent
-            [ "{"
-            , "S" ++ show end ++ "[shape=doublecircle]"
-            , "}"
-            ]
-
-        staticBody = unlines $ map indent
-            [ "empty [label=\"\", shape=none,height=.0,width=.0]"
-            , "empty -> S" ++ show start ]
-
-        indent xs = if null xs then "" else "\t" ++ xs
-
-        body = transitionsToString ts
-        transitionsToString :: NFATransitions -> String
-        transitionsToString ts = go (toList ts) ""
-            where
-                go :: [(State, DefaultMap Char [State])] -> String -> String
-                go [] accu       = accu
-                go ((state, dMap):tss) accu = go tss (accu ++ inner state (toList dMap))
-
-        -- TODO: use unlines
-        inner :: State -> [(Char, [State])] -> String 
-        inner start xs =
-            foldr
-                (\(ch, sts) outerAcc ->
-                    outerAcc ++ foldr (\target innerAcc ->
-                        innerAcc ++ createEdge start target ch ++ (helper innerAcc)) "" sts ++ (helper outerAcc))
-                ""
-                xs
-
-        -- TODO: prettify this shit
-        helper li = if null li then "" else "\n"
-        createEdge :: State -> State -> Char -> String
-        createEdge s t l = "\tS" ++ show s ++ " -> S" ++ show t ++ " [label=" ++ formatChar l ++ "]\n"
-            where
-                formatChar :: Char -> String
-                formatChar '.' = [dot]
-                formatChar l = [l]
-
-
--- compute the epsilon clojure of a given Epsilon-NFA
-epsilonClosure :: NFA -> EpsClosure
--- TODO: prettify, right now we manually add the AcceptState because it is not in the 
--- transitions; we might have to do the same for the automaton that only contains the starting node (automton for the ""-regex)
-epsilonClosure (NFA start end (outer,d)) = insert end (const [end]) (go adjacencyEpsList)
-    where 
-        adjacencyEpsList :: DefaultMap State [State]
-        adjacencyEpsList = create (M.fromList $ map (\(s,ts) -> (s, lookup eps ts)) (M.toList outer)) []
-
-        go :: DefaultMap State [State] -> DefaultMap State [State]
-        go m@(map, _) = create (foldr (\elem accu -> M.union accu (fst . fst $ S.execState (dfs elem elem m) (emptyDFSState elem))) M.empty (M.keys map)) []
-
-
 
 emptyDFSState :: State -> (DefaultMap State [State], [State])
-emptyDFSState initial = (insert initial (const [initial]) (empty []), [])
+emptyDFSState initial = (DMap.insert initial (const [initial]) (DMap.empty []), [])
 
--- TODO: prettify
 dfs :: State -> State -> DefaultMap State [State] -> S.State (DefaultMap State [State], [State]) ()
 dfs target current adjacency = do
     (accu, seen) <- S.get
-    let neighbours = filter (`notElem` seen) (lookup current adjacency)
-    let newAccu = insert target (++ neighbours) accu
+    let neighbours = filter (`notElem` seen) (DMap.lookup current adjacency)
+    let newAccu = DMap.insert target (++ neighbours) accu
     S.modify $ const(newAccu, seen ++ neighbours)
     go neighbours
     where
         go [] = return ()
         go (n:ns) = dfs target n adjacency
+
+-- compute the epsilon clojure of a given Epsilon-NFA
+epsilonClosure :: NFA -> EpsClosure
+-- manually insert the accepting-state as the epsilon closure is reflexive and 
+-- it would otherwise not be part of it since it has an outdegree of 0
+epsilonClosure (NFA start end (outer,d)) = DMap.insert end (const [end]) (go adjacencyEpsList)
+    where 
+        adjacencyEpsList :: DefaultMap State [State]
+        adjacencyEpsList = DMap.create (Map.fromList $ map (\(s,ts) -> (s, DMap.lookup eps ts)) (Map.toList outer)) []
+
+        go :: DefaultMap State [State] -> DefaultMap State [State]
+        go m@(map, _) = DMap.create (foldr (\elem accu -> Map.union accu (fst . fst $ S.execState (dfs elem elem m) (emptyDFSState elem))) Map.empty (Map.keys map)) []
