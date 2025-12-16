@@ -24,15 +24,15 @@ type State      = Int
 type MultiState = [State]
 type EpsClosure = DefaultMap State [State]
 
-type DFATransitions = DefaultMap State (Map Char State)
-data DFA = DFA State [State] DFATransitions
-instance Show DFA where
-    show = stringifyDFA
-
 type NFATransitions = DefaultMap State (DefaultMap Char [State])
 data NFA = NFA State State NFATransitions
 instance Show NFA where
     show = stringifyNFA
+
+type DFATransitions = DefaultMap State (Map Char State)
+data DFA = DFA State [State] DFATransitions
+instance Show DFA where
+    show = stringifyDFA
 
 type PowerSetDFATransitions = DefaultMap MultiState (Map Char MultiState)
 data PowerSetDFA = PowerSetDFA MultiState [MultiState] PowerSetDFATransitions
@@ -111,7 +111,7 @@ stringifyDFA (DFA start ends ts) =
         inner :: State -> [(Char, State)] -> String 
         inner start xs = unlines [createTransition start s ch | (ch, s) <- xs]
 
-
+-- | NFA
 stringifyNFA :: NFA -> String
 stringifyNFA (NFA start end ts) =
     unlines [ "digraph G{"

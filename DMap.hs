@@ -4,6 +4,7 @@ module DMap ( empty
             , toList
             , create
             , keys
+            , union
             , toString
             , DefaultMap ) where
 
@@ -19,10 +20,15 @@ empty d = (Map.empty, d)
 create :: Map k v -> v -> DefaultMap k v
 create m v = (m, v)
 
+-- TODO: if you insert the default value into the map then nothing happens
+-- => to save memory
 insert :: Ord k => k -> (v -> v) -> DefaultMap k v -> DefaultMap k v
 insert k f (map, d) = case Map.lookup k map of
     Nothing    -> (Map.insert k (f d) map, d)
     Just found -> (Map.insert k (f found) map, d)
+
+delete :: Ord k => k -> DefaultMap k v -> DefaultMap k v
+delete k (map, d) = (Map.delete k map, d)
 
 lookup :: Ord k => k -> DefaultMap k v -> v
 lookup k (m, d) = case Map.lookup k m of
@@ -37,3 +43,9 @@ keys = Map.keys . fst
 
 toString :: (Show k, Show v) => DefaultMap k v -> String 
 toString (m, _) = show m
+
+map :: (a -> b) -> b -> DefaultMap k a -> DefaultMap k b
+map f newDefault (map, _) = (Map.map f map, newDefault)
+
+union :: Ord k => DefaultMap k v -> DefaultMap k v -> DefaultMap k v
+union (map1, d) (map2, _) = (Map.union map1 map2, d) 
