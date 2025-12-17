@@ -19,19 +19,14 @@ data Regex
     | Dot
     deriving (Eq, Show)
 
-atom = dot
-    <|> literal
-    <|> eps -- TODO: move last?
-    <|> char '(' *> atom <* char ')'
-
 pp :: Regex -> String 
-pp Epsilon = "ε"
-pp Dot     = "."
-pp (Literal l) = [l]
+pp Epsilon                = "ε"
+pp Dot                    = "."
+pp (Literal l)            = [l]
 pp (Kleene l@(Literal _)) = pp l ++ "*"
-pp (Kleene d@Dot) = pp d ++ "*"
-pp (Kleene r) = "(" ++ pp r ++ ")*"
-pp (Concat r1 r2) = pp r1 ++ pp r2
+pp (Kleene d@Dot)         = pp d ++ "*"
+pp (Kleene r)             = "(" ++ pp r ++ ")*"
+pp (Concat r1 r2)         = pp r1 ++ pp r2
 
 -- @parseReg@ only returns @Just reg@ if the sequence is parsed fully.
 -- This simplifies testing.
@@ -47,23 +42,12 @@ parseReg1 "" = Just (Epsilon,"")
 parseReg1 s  = parse reg s
 
 reg :: Parser Regex
-reg = reg1 -- <|> reg2
-
-reg1 :: Parser Regex
-reg1  = concat
+reg  = concat
     <|> kleene
     <|> plus
     <|> dot
     <|> literal
     <|> eps
-
-reg2 :: Parser Regex
-reg2  = do 
-    char '('
-    r <- reg1 <|> reg2
-    char ')'
-    return r
-
 
 regWithOutConcat :: Parser Regex
 regWithOutConcat = kleene 
@@ -72,13 +56,6 @@ regWithOutConcat = kleene
                 <|> literal
                 <|> eps
 
-regWithOutEpsilonAndOptional :: Parser Regex
-regWithOutEpsilonAndOptional = concat
-    <|> kleene
-    <|> plus
-    <|> dot
-    <|> literal
-
 literal :: Parser Regex
 literal = literal1 <|> literal2
 
@@ -86,9 +63,6 @@ literal1 :: Parser Regex
 literal1 = do 
     c <- sat isAlphaNum
     return $ Literal c
-
--- foo :: Parser Regex -> Parser Regex
--- foo p = char '(' *> p <* char ')'
 
 literal2 :: Parser Regex
 literal2 = do
@@ -111,6 +85,7 @@ dot1 = do
     char '.'
     return Dot
 
+dot2 :: Parser Regex
 dot2 = do 
     char '('
     c <- dot1 <|> dot2
@@ -151,18 +126,6 @@ concat2 = do
     
     tail_rs <- zeroOrMore reg 
     return $ foldl Concat c tail_rs
-
-
-{-
-   | ignored for now
-
-optional :: Parser Regex
-optional = do 
-    -- r <- literal -- TODO: make this take any regex expression
-    r <- literal
-    char '?'
-    return $ Optional r
--}
 
 plus :: Parser Regex 
 plus = plus1 <|> plus2

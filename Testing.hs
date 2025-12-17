@@ -154,7 +154,71 @@ testSuiteMatching = [
   , ("((a+)(b+)(c+))",   "aaabbb",      False)
   , ("((a.*)(b+))",      "axxxbbb",      True)
   , ("((a.*)(b+))",      "axxx",        False)
-  , ("(.(.)*)",          "abc",          True) ]
+  , ("(.(.)*)",          "abc",          True)
+
+  , ("((a+b*)(c+))*",          "",               True)
+  , ("((a+b*)(c+))*",          "aaabbbccc",       True)
+  , ("((a+b*)(c+))*",          "cccaaabbb",      False)
+
+  , ("(a*(bc)+d)",             "bcd",             True)
+  , ("(a*(bc)+d)",             "aaabcbcd",        True)
+  , ("(a*(bc)+d)",             "aaabd",           False)
+
+  , ("((ab.)+(c*))",           "abxc",            True)
+  , ("((ab.)+(c*))",           "abxabxc",         True)
+  , ("((ab.)+(c*))",           "abx",             True)
+  , ("((ab.)+(c*))",           "ab",              False)
+
+  , ("((a.)*(b+)(c.))",        "abbbbcx",        True)
+  , ("((a.)*(b+)(c.))",        "bbcx",             True)
+  , ("((a.)*(b+)(c.))",        "ababbbcc",        True)
+
+  , ("((a+b)(c+d))*",          "acbdac",          False)
+  , ("((a+b)(c+d))*",          "",                True)
+  , ("((a+b)(c+d))*",          "aaabcd",          True)
+
+  , ("(a(bc+d)*)",             "abcbc",            False)
+  , ("(a(bc+d)*)",             "ad",              False)
+  , ("(a(bc+d)*)",             "a",                True)
+
+  , ("((a*)(b(c+))*)",         "abcccbcc",        True)
+  , ("((a*)(b(c+))*)",         "aaab",             False)
+
+  , ("((a+b+).*)",             "aaabxxx",          True)
+  , ("((a+b+).*)",             "bbb123",           False)
+  , ("((a+b+).*)",             "xxx",             False)
+
+  , ("((a.)+(b*)c)",           "ababbbc",          True)
+  , ("((a.)+(b*)c)",           "abc",              True)
+  , ("((a.)+(b*)c)",           "ababbb",           False)
+
+  , ("((a(b*))+c)",            "abbbc",            True)
+  , ("((a(b*))+c)",            "ac",               True)
+  , ("((a(b*))+c)",            "abbb",             False)
+
+  , ("(((ab)*c)+d)",           "abcd",             True)
+  , ("(((ab)*c)+d)",           "ababcabcd",        True)
+  , ("(((ab)*c)+d)",           "ab",              False)
+
+  , ("((a*)(b*)(c+).*)",       "aaabbbcccxxx",     True)
+  , ("((a*)(b*)(c+).*)",       "ccc",               True)
+  , ("((a*)(b*)(c+).*)",       "bbb",              False)
+
+  , ("(a.(b+c)+d*)",           "axbbbc",            True)
+  , ("(a.(b+c)+d*)",           "axbcbbbcd",        True)
+  , ("(a.(b+c)+d*)",           "axd",              False)
+
+  , ("(((a.)*)+((b.)+))",      "abab",              False)
+  , ("(((a.)*)+((b.)+))",      "bxbx",              True)
+  , ("(((a.)*)+((b.)+))",      "",                 False)
+
+  , ("((a+)(.(b+))*)",         "aaxbxb",            True)
+  , ("((a+)(.(b+))*)",         "a",                 True)
+  , ("((a+)(.(b+))*)",         "xb",               False)
+
+  , ("((a*)(.(.)+))",          "xyz",               True)
+  , ("((a*)(.(.)+))",          "a1b2",              True)
+  , ("((a*)(.(.)+))",          "a",                False) ]
 
 testSuite1 :: [String]
 testSuite1 = 

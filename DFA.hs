@@ -47,7 +47,6 @@ flattenToDFA (PowerSetDFA start accepts ts) =
                 getSymbols :: PowerSetDFATransitions -> MultiState -> [Char]
                 getSymbols ts ms = Map.keys (DMap.lookup ms ts)
 
-
 data Env = Env
     { acceptingStates :: [MultiState]
     , transitions     :: PowerSetDFATransitions
@@ -72,16 +71,19 @@ fromNFAMulti nfa@(NFA start _ ts) =
 
 fromNFAMulti' :: (NFA, EpsClosure) -> MultiState -> S.State Env ()
 fromNFAMulti' dtype@(nfa@(NFA start _ ts),epsClosure) currentState = do
-    -- mark current state as seen
+    -- Mark current state as seen
     S.modify (\s -> s{seen = currentState:seen s})
 
     let symbols = getSymbols ts currentState
     let reachableStates = foldr (\char accu -> Map.insert char (getReachableStates (ts, currentState) char) accu) Map.empty symbols
     let reachableStatesWithClosure = Map.map (\multiState -> getMSClosure (epsClosure, multiState)) reachableStates 
-    -- mark all the computed multistates as reachable for the current state by putting them into `transitions`
+
+    -- Mark all the computed multistates as reachable for the current state by putting them into `transitions`
     S.modify(\s -> s{transitions = DMap.insert currentState (const reachableStatesWithClosure) (transitions s)})
-    -- if an accepting state is part of the `currentState`, put `currentstate` into env
+
+    -- If an accepting state is part of the `currentState`, put `currentstate` into env
     when (hasAcceptState (nfa, currentState)) $ S.modify (\s-> s{ acceptingStates = currentState : acceptingStates s } )
+
     -- Call recursively on reachable multistates which have not been seen yet
     seen' <- S.gets seen
     let newStates = filter (`notElem` seen') (Map.elems reachableStatesWithClosure)
