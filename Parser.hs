@@ -17,9 +17,6 @@ data Regex
     | Kleene Regex
     | Concat Regex Regex
     | Dot
-    -- TODO: for later extensions
-    -- | Optional Regex
-    -- | Plus Regex
     deriving (Eq, Show)
 
 atom = dot

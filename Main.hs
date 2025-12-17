@@ -29,12 +29,12 @@ main = do
 
             putStr ">? "
             input <- getLine
-            let matched = Regex.match1 reg input
+            -- let matched = Regex.match1 reg input
 
             -- Enables trace (experimental)
-            -- let (_, trace) = Regex.checkWithTrace dfa input
+            let (matched, trace) = Regex.checkWithTrace dfa input
             putStrLn $ "Checking " ++ show input ++ " on " ++ show p ++
                        " results in: " ++ show matched
-            -- putStrLn $ "The trace is: " ++ show trace
+            putStrLn $ "The trace is: " ++ show trace
         Nothing -> putStrLn "Failed to parse."
     main -- continue
