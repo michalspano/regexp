@@ -1,5 +1,7 @@
 -- A stand-alone testing module for Regex parser. Call @Testing.main@ to execute on all
 -- test cases.
+-- Test suites generated with OpenAI's GPT 5.2 (checked manually by us afterwards).
+-- TODO: offload much of this work to @QuickCheck@.
 
 module Testing where
 
@@ -10,19 +12,23 @@ import Debug.Trace (trace)
 main :: IO ()
 main = do
   mapM_ (\res -> putStrLn $ show res ++ "\n" ++ sep) tests
-  where tests = [testParser, testMatching] -- list of tests yielding a Bool
+  where tests = [ testParser testSuiteParser       -- variety of regs
+                , testParser matchingRegs          -- verify regs first
+                , testMatching testSuiteMatching ] -- same regs as^ with match tests
         sep   = [ '=' | _ <- [1..80]] 
 
-testParser :: Bool 
-testParser = process testSuiteParser 1 True
+        matchingRegs = map (\(reg,_,_) -> reg) testSuiteMatching
+
+testParser :: [String] -> Bool
+testParser ps = process ps 1 True
     where
         process []     _ success = success
         process (s:ss) k success = case parseReg s of
             Just reg -> trace (prefix True  k ++ show reg) process ss (k+1) success
             Nothing  -> trace (prefix False k ++ s)        process ss (k+1) False
 
-testMatching :: Bool
-testMatching = process testSuiteMatching 1 True
+testMatching :: [(String, String, Bool)] -> Bool
+testMatching matches = process matches 1 True
   where
     process [] _ success = success
     process ((pattern,input,expected):ss) k success =

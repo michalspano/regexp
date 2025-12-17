@@ -18,15 +18,44 @@ $\cdot$ Michal Spano, Phillip-Immanuel Holst
 
 ---
 
-## **Agenda**
+## What Is This?
 
-1. <TOPIC_NAME>
-   1. <SUBTOPIC_NAME>
-   2. <SUBTOPIC_NAME>
-2. <TOPIC_NAME>
-   1. <SUBTOPIC_NAME>
-   2. <SUBTOPIC_NAME>
+- A regex **parser \& interpreter** for a minimal language (subset of `ISO XXX`):
+    ```
+    r1,r2 ::= ε | . | a | r1r2 | r1* | r1+
+    ```
+    - *Note*: difficulty parsing  `r1 | r2`
+- Matches input text on regex in a *repl* (CLI)
+    ```txt
+    λ> main
+    >> (ab.)*ab
+    >? abxabyab
+    Checking "abxabyab" on "(ab.)*ab" results in: True
+    ...
+    ```
+- Library for further extension
+- Visualizer for underlying datastructure using a markup language `dot`
 
 ---
 
-continue
+TODO
+
+---
+
+## Future Plans
+
+- Package the source via `Cabal`
+- Extend testing to `QuickCheck`
+- Extend the language (e.g., `reg1 | reg2`) + update parsing
+- Build a frontend (website) - embed graphs
+    - Animation for step-by-step traversal
+    - Talk to server (this module); will emit graph resources
+    - Useful for intricate patterns (e.g. for students)
+
+---
+
+![bg](./frontend_demo.png)
+
+---
+
+# Thanks
