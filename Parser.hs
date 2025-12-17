@@ -1,24 +1,23 @@
-module Parser (Regex(..), pp, parseReg ) where
+module Parser
+    ( Regex(..) -- * Datatype for Regex
+    , pp        -- * @Regex@ pretty print
+    , parseReg
+    , parseReg1
+    ) where
 
 import Parsing
 
--- import Test.QuickCheck
-import Debug.Trace (trace)
 import Data.Maybe (isJust)
-
 import Prelude hiding (concat)
 import Data.Char (isAlphaNum)
 
-{-
-Current alphabet:
-Literal, Epsilon, . , *, +, Concat 
--}
 data Regex
     = Epsilon
     | Literal Char
     | Kleene Regex
     | Concat Regex Regex
     | Dot
+    -- TODO: for later extensions
     -- | Optional Regex
     -- | Plus Regex
     deriving (Eq, Show)
@@ -36,20 +35,19 @@ pp (Kleene l@(Literal _)) = pp l ++ "*"
 pp (Kleene d@Dot) = pp d ++ "*"
 pp (Kleene r) = "(" ++ pp r ++ ")*"
 pp (Concat r1 r2) = pp r1 ++ pp r2
--- pp (Optional r)   = pp r ++ "?"
-
--- instance Arbitrary Regex where
---    arbitrary = undefined
 
 -- @parseReg@ only returns @Just reg@ if the sequence is parsed fully.
+-- This simplifies testing.
 parseReg :: String -> Maybe Regex
-parseReg s = case parseReg' s of
+parseReg s = case parseReg1 s of
     Just (reg,"") -> Just reg
     _             -> Nothing
 
-parseReg' :: String -> Maybe (Regex,String)
-parseReg' "" = Just (Epsilon,"")
-parseReg' s  = parse reg s
+-- @parseReg1@ returns a subset of sucessfully parsed regex and the trailing
+-- sequence.
+parseReg1 :: String -> Maybe (Regex,String)
+parseReg1 "" = Just (Epsilon,"")
+parseReg1 s  = parse reg s
 
 reg :: Parser Regex
 reg = reg1 -- <|> reg2

@@ -14,12 +14,12 @@ main = do
         sep   = [ '=' | _ <- [1..80]] 
 
 testParser :: Bool 
-testParser = process testSuite 1 True
+testParser = process testSuiteParser 1 True
     where
         process []     _ success = success
         process (s:ss) k success = case parseReg s of
-            Just reg -> trace (show k ++ ") [OK]\t" ++ show reg) process ss (k+1) success
-            Nothing  -> trace (show k ++ ") [FAILED]\t: " ++ s) $ process ss (k+1) False
+            Just reg -> trace (prefix True  k ++ show reg) process ss (k+1) success
+            Nothing  -> trace (prefix False k ++ s)        process ss (k+1) False
 
 testMatching :: Bool
 testMatching = process testSuiteMatching 1 True
@@ -27,14 +27,16 @@ testMatching = process testSuiteMatching 1 True
     process [] _ success = success
     process ((pattern,input,expected):ss) k success =
       let res = match pattern input in
-        trace ( show k ++ ") " ++
-          prefix (res == expected) ++
+        trace (prefix (res == expected) k ++
           "Pattern:" ++ show pattern ++
           "\tinput: " ++ show input)
         $ process ss (k+1) (success && res == expected)
-      where prefix b = if b then "[OK]:\t" else "[FAIL]:\t"
 
-testSuite = testSuite1 ++ testSuite2 ++ complexRegexes
+prefix :: Bool -> Int -> String
+prefix b n = show n ++ ") " ++ if b then "[OK]: " else "[FAIL]: "
+
+testSuiteParser :: [String]
+testSuiteParser = testSuite1 ++ testSuite2 ++ complexRegexes
 
 testSuiteMatching :: [(String, String, Bool)]
 testSuiteMatching = [
@@ -495,10 +497,8 @@ testSuite2 =
 
 complexRegexes :: [String]
 complexRegexes =
-    [
-    "(a*(bc+(d.(e*f+))))(a*(bc+(d.(e*f+))))()(a+b*c*(d+))(a.(b.(c.(d.(e*(f+))))))"
-  , "(a*(b*(c+(d*(e+(f*(g*(h+))))))))(bc*(de+))(a.(b.(c.(d.(e.(f.(g)))))))()(abc+)*"
-  , "((a.b.c.d.e.f.g.h)+)(a*(b*(c*(d*(e*(f*(g*(h*(i+)))))))))(abc*(def+))()(a+)(b*)(c*)"
-  , "(a(bc*(d+(e.(f*(g+))))))(a*(b.(c.(d.(e.(f.(g.(h))))))))(abc*(de+f*))(g+h*)*()a*b*c+"
-  , "((a*(b+)(c*)(d*(e+))))(f.(g.(h.(i.(j.(k*(l+)))))))(a*b*c*d*)(e+f*)(g*(h+))()"
-  ]
+    [ "(a*(bc+(d.(e*f+))))(a*(bc+(d.(e*f+))))()(a+b*c*(d+))(a.(b.(c.(d.(e*(f+))))))"
+    , "(a*(b*(c+(d*(e+(f*(g*(h+))))))))(bc*(de+))(a.(b.(c.(d.(e.(f.(g)))))))()(abc+)*"
+    , "((a.b.c.d.e.f.g.h)+)(a*(b*(c*(d*(e*(f*(g*(h*(i+)))))))))(abc*(def+))()(a+)(b*)(c*)"
+    , "(a(bc*(d+(e.(f*(g+))))))(a*(b.(c.(d.(e.(f.(g.(h))))))))(abc*(de+f*))(g+h*)*()a*b*c+"
+    , "((a*(b+)(c*)(d*(e+))))(f.(g.(h.(i.(j.(k*(l+)))))))(a*b*c*d*)(e+f*)(g*(h+))()" ]

@@ -1,13 +1,17 @@
-module DFA (fromNFA, fromNFAMulti, flattenToDFA) where
+module DFA
+    ( fromNFA
+    , fromNFAMulti
+    , flattenToDFA
+    ) where
 
 import DMap (DefaultMap)
 import Data.Map (Map)
 import qualified DMap
 import qualified Data.Map as Map
 
+import Datatypes
 import NFA (epsilonClosure)
 import Data.List (union, intercalate)
-import Datatypes
 
 import Control.Monad (when)
 import qualified Control.Monad.State as S
@@ -16,11 +20,12 @@ fromNFA :: NFA -> DFA
 fromNFA = flattenToDFA . fromNFAMulti 
 
 flattenToDFA :: PowerSetDFA -> DFA
-flattenToDFA (PowerSetDFA start accepts ts) = let newLabels = newLabelings (DMap.keys ts) 0 (DMap.empty $ -1) in 
+flattenToDFA (PowerSetDFA start accepts ts) =
+    let newLabels = newLabelings (DMap.keys ts) 0 (DMap.empty $ -1) in 
         DFA (DMap.lookup start newLabels)
             (map (`DMap.lookup` newLabels) accepts)
             (foldr
-                ( \key accu -> DMap.union accu ( updateKey key newLabels (DMap.empty Map.empty) ) )
+                (\key accu -> DMap.union accu (updateKey key newLabels $ DMap.empty Map.empty))
                 (DMap.empty Map.empty)
                 (DMap.keys ts)
             )
@@ -36,7 +41,6 @@ flattenToDFA (PowerSetDFA start accepts ts) = let newLabels = newLabelings (DMap
             DMap.insert (DMap.lookup key labeling) (const newValues) accu -- compute the new keys
 
             where
-                -- 
                 updateAllValues :: Map Char MultiState -> DefaultMap MultiState State -> Map Char State
                 updateAllValues tsForChar newLabelings = Map.map (\val -> DMap.lookup val newLabelings) tsForChar
 
@@ -44,18 +48,17 @@ flattenToDFA (PowerSetDFA start accepts ts) = let newLabels = newLabelings (DMap
                 getSymbols ts ms = Map.keys (DMap.lookup ms ts)
 
 
--- S.State ([MultiState], PowerSetDFATransitions, [MultiState]) ()
 data Env = Env
     { acceptingStates :: [MultiState]
     , transitions     :: PowerSetDFATransitions
     , seen            :: [MultiState] }
 
 emptyEnv :: Env
-emptyEnv = Env {
-    acceptingStates = [],
-    transitions     = DMap.empty Map.empty,
-    seen            = []
-}
+emptyEnv = Env
+    { acceptingStates = []
+    , transitions     = DMap.empty Map.empty
+    , seen            = [] }
+
 eps :: Char
 eps = '\949'
 

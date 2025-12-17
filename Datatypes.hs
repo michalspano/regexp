@@ -1,16 +1,15 @@
+-- | Shared datatypes and definitions
 module Datatypes
-( -- * Shared datatypes and definitions
-     State
-    ,MultiState
-    ,EpsClosure
-    ,DFATransitions
-    ,DFA(..)
-    ,NFATransitions
-    ,NFA(..)
-    ,PowerSetDFATransitions
-    ,PowerSetDFA(..)
-)
-where
+    ( State
+    , MultiState
+    , EpsClosure
+    , NFA(..)
+    , DFA(..)
+    , PowerSetDFA(..)
+    , NFATransitions
+    , DFATransitions
+    , PowerSetDFATransitions
+    ) where
 
 import Debug.Trace (trace)
 
@@ -38,7 +37,8 @@ data PowerSetDFA = PowerSetDFA MultiState [MultiState] PowerSetDFATransitions
 instance Show PowerSetDFA where
     show = stringifyPowerSetDFA
 
--- * Stringify helpers for datatypes
+-- * Stringify helpers for datatypes; not exposed in the module but override
+-- @Show@.
 
 -- | PowerSetDFA
 stringifyPowerSetDFA :: PowerSetDFA -> String
@@ -51,7 +51,9 @@ stringifyPowerSetDFA (PowerSetDFA startMs endMss ts) =
     where
         headers = unlines
             [ indent "{"
-            , unlines $ map (\state -> (indent . indent) $ "S" ++ formatMultiState state ++ "[shape=doublecircle]") endMss
+            , unlines $ map (\state ->
+                (indent . indent) $ "S" ++ formatMultiState state ++
+                    "[shape=doublecircle]") endMss
             , indent "}"
             ]
 
@@ -65,17 +67,18 @@ stringifyPowerSetDFA (PowerSetDFA startMs endMss ts) =
             where
                 go :: [(MultiState, Map Char MultiState)] -> String -> String
                 go [] accu       = accu
-                go ((state, dMap):tss) accu = go tss (accu ++ createEdges state (Map.toList dMap))
+                go ((state, dMap):tss) accu =
+                    go tss (accu ++ createEdges state (Map.toList dMap))
 
         createEdges :: MultiState -> [(Char, MultiState)] -> String 
         createEdges start xs = unlines [createEdge start ms ch | (ch, ms) <- xs]
        
         createEdge :: MultiState -> MultiState -> Char -> String
-        createEdge s t l = "\tS" ++ formatMultiState s ++ " -> S" ++ formatMultiState t ++ " [label=" ++ formatChar l ++ "]"
+        createEdge s t l = "\tS" ++ formatMultiState s ++ " -> S" ++
+                            formatMultiState t ++ " [label=" ++ formatChar l ++ "]"
 
         formatMultiState :: MultiState -> String
         formatMultiState = concatMap show
-
 
 -- | DFA
 stringifyDFA :: DFA -> String
@@ -88,7 +91,9 @@ stringifyDFA (DFA start ends ts) =
     where
         headers = unlines
             [ indent "{"
-            , unlines $ map (\state -> (indent . indent) $ "S" ++ show state ++ "[shape=doublecircle]") ends
+            , unlines $ map(\state ->
+                (indent . indent) $ "S" ++ show state ++ "[shape=doublecircle]"
+                ) ends
             , indent "}"
             ]
 
@@ -142,25 +147,21 @@ stringifyNFA (NFA start end ts) =
         -- Create edges from a (start) state to other states via multiple paths
         -- (i.e., char literals).
         createTransitions :: State -> [(Char, [State])] -> String 
-        createTransitions start xs = concat [unlines [createTransition start s ch | s <- ss] | (ch, ss) <- xs]
+        createTransitions start xs =
+            concat [unlines
+                [createTransition start s ch | s <- ss]
+                    | (ch, ss) <- xs ]
 
 
--- Shared helpers
+-- | Shared helpers
 
 formatChar :: Char -> String
-formatChar '.' = "•"
-formatChar l = [l]
+formatChar '.' = "\8226"
+formatChar l   = [l]
 
 indent :: String -> String
 indent xs = if null xs then "" else "\t" ++ xs
 
-dot :: Char
-dot = '•'
-
 createTransition :: State -> State -> Char -> String
 createTransition s t l = "\tS" ++ show s ++ " -> S" ++ show t ++
                         " [label=" ++ formatChar l ++ "]"
-    where
-        formatChar :: Char -> String
-        formatChar '.' = "\8226"
-        formatChar l = [l]

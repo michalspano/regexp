@@ -1,9 +1,7 @@
 module NFA
-( NFA
- ,fromRegex
- ,epsilonClosure
-)
-where
+    ( fromRegex
+    , epsilonClosure
+    ) where
 
 import qualified DMap
 import qualified Data.Map as Map
@@ -13,11 +11,7 @@ import Data.Map (Map)
 import Datatypes
 import Parser (Regex(..))
 
-import Prelude hiding (lookup)
 import qualified Control.Monad.State as S
-
-
--- Start-State, Accept-State, Transitions
 
 data Env = Env
     { transitions :: NFATransitions
@@ -37,7 +31,6 @@ compileNFA reg = do
 fromRegex :: Regex -> NFA
 fromRegex reg = fst $ S.runState (compileNFA reg) emptyEnv
 
--- TODO: move to util
 eps :: Char
 eps = '\949'
 
@@ -107,22 +100,24 @@ getNextState = do
     S.modify (const s{ stateCount = c + 1})
     return c
 
-
+-- Manually insert the accepting-state as the epsilon closure is reflexive and
+-- it would otherwise not be part of it since it has an outdegree of 0.
 emptyDFSState :: State -> (DefaultMap State [State], [State])
 emptyDFSState initial = (DMap.insert initial (const [initial]) (DMap.empty []), [])
 
-
--- compute the epsilon clojure of a given Epsilon-NFA
+-- | Compute the epsilon clojure of a given Epsilon-NFA
 epsilonClosure :: NFA -> EpsClosure
--- manually insert the accepting-state as the epsilon closure is reflexive and 
--- it would otherwise not be part of it since it has an outdegree of 0
 epsilonClosure (NFA start end (outer,d)) = DMap.insert end (const [end]) (go adjacencyEpsList)
     where 
         adjacencyEpsList :: DefaultMap State [State]
         adjacencyEpsList = DMap.create (Map.fromList $ map (\(s,ts) -> (s, DMap.lookup eps ts)) (Map.toList outer)) []
 
         go :: DefaultMap State [State] -> DefaultMap State [State]
-        go m = DMap.create (foldr (\elem accu -> Map.union accu (fst . fst $ S.execState (dfs elem elem m) (emptyDFSState elem))) Map.empty (DMap.keys m)) []
+        go m = DMap.create (foldr
+                (\elem accu -> Map.union accu
+                    (fst . fst $ S.execState (dfs elem elem m) (emptyDFSState elem)))
+                Map.empty (DMap.keys m)
+            ) []
 
 dfs :: State -> State -> DefaultMap State [State] -> S.State (DefaultMap State [State], [State]) ()
 dfs target current adjacency = do
