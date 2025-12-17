@@ -8,7 +8,6 @@ import Data.Maybe (isJust)
 
 import Prelude hiding (concat)
 import Data.Char (isAlphaNum)
-import Testing (testSuite)
 
 {-
 Current alphabet:
@@ -23,15 +22,6 @@ data Regex
     -- | Optional Regex
     -- | Plus Regex
     deriving (Eq, Show)
-
-test :: Bool 
-test = process testSuite 1 True
-    where
-        process []     _ success = success
-        process (s:ss) k success = case parseReg s of
-            Just (s',"") -> trace (show k ++ ") [OK]\t" ++ s) process ss (k+1) success
-            Just (s',rest) -> trace (show k ++ ") [Failed]\t" ++ s ++ " with rest: " ++ rest) process ss (k+1) False
-            Nothing -> trace (show k++ ") [FAILED]\t: " ++ s) $ process ss (k+1) False
 
 atom = dot
     <|> literal
@@ -51,18 +41,15 @@ pp (Concat r1 r2) = pp r1 ++ pp r2
 -- instance Arbitrary Regex where
 --    arbitrary = undefined
 
-{-
-- eps
-- literal X
-- Kleene (eps)
-- Kleene (Literal X)
-- Kleene (Kleene (Kleene ... (eps | Literal X)))
--}
+-- @parseReg@ only returns @Just reg@ if the sequence is parsed fully.
+parseReg :: String -> Maybe Regex
+parseReg s = case parseReg' s of
+    Just (reg,"") -> Just reg
+    _             -> Nothing
 
-parseReg :: String -> Maybe(Regex,String)
--- TODO: see if we can move this to eps
-parseReg "" = Just (Epsilon,"")
-parseReg s  = parse reg s
+parseReg' :: String -> Maybe (Regex,String)
+parseReg' "" = Just (Epsilon,"")
+parseReg' s  = parse reg s
 
 reg :: Parser Regex
 reg = reg1 -- <|> reg2

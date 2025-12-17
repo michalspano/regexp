@@ -1,30 +1,40 @@
-module Regex (check, checkWithTrace) where
+module Regex
+    ( match           -- * regex (string) on string input
+    , match1          -- * regex (datatype) on string input
+    , check           -- * internal
+    , checkWithTrace  -- * internal (trace for visuals)
+    ) where
 
 import Datatypes
-import qualified Parser as P
 import qualified DFA (fromNFAMulti, flattenToDFA, fromNFA)
 import qualified NFA (epsilonClosure, fromRegex)
+
 import qualified DMap
+import qualified Parser as P
 import qualified Data.Map as Map
 import qualified Control.Monad.State as S
-import Data.Type.Coercion (trans)
-import Debug.Trace
 
--- TODO: consider using Reader monad
+type RegPattern = String
 
-type CompiledRegex = DFA
+-- Match a (stringified) Regex against a string input
+match :: RegPattern -> String -> Bool
+match p s = case P.parseReg p of
+    Just reg -> match1 reg s
+    _        -> False
 
-match :: P.Regex -> String -> Bool
-match pattern input = let dfa = (DFA.fromNFA . NFA.fromRegex) pattern in 
+-- Match a Regex datatype against a string input
+match1 :: P.Regex -> String -> Bool
+match1 pattern input = let dfa = (DFA.fromNFA . NFA.fromRegex) pattern in 
     check dfa input
 
--- this is lazy btw
+-- Match a Regex (as a DFA construct) against a string input
+-- Note: useful for internal testing; @match@ calls @check@.
 check :: DFA -> String -> Bool
 check dfa@(DFA start accepts ts) = go start
     where
         go :: State -> String -> Bool
         go current []     = current `elem` accepts
-        go current (c:cs) = any proceedWithChar ['.', c]
+        go current (c:cs) = any proceedWithChar ['.', c] -- lazy
             where 
                 proceedWithChar :: Char -> Bool
                 proceedWithChar c = case Map.lookup c $ DMap.lookup current ts of
@@ -36,7 +46,8 @@ type TraversalTrace =
     ( Bool             -- * flag when in accepting state
     , [(State, Bool)]) -- * labeling (faulty/valid) for each state
 
--- this isnt lazy btw
+-- Works the same as @check@, but at each step of the traversal marks the state.
+-- This is useful for visualising the traversal step-by-step.
 checkWithTrace :: DFA -> String -> (Bool, [(State, Bool)]) 
 checkWithTrace dfa@(DFA start accepts ts) input =
     let (matched, state) = S.runState (go start input) (False, []) in

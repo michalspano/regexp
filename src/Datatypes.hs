@@ -18,7 +18,6 @@ import qualified DMap
 import qualified Data.Map as Map
 import DMap (DefaultMap)
 import Data.Map (Map)
-import Data.ByteString (intercalate)
 
 type State      = Int
 type MultiState = [State]

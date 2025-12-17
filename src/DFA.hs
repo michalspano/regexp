@@ -11,8 +11,6 @@ import Datatypes
 
 import Control.Monad (when)
 import qualified Control.Monad.State as S
-import Control.Monad.RWS (modify)
-import Text.Parsec (updateState)
 
 fromNFA :: NFA -> DFA
 fromNFA = flattenToDFA . fromNFAMulti 
