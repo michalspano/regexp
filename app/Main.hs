@@ -1,4 +1,5 @@
--- Main.hs for the Regex module
+-- Main.hs for the Regex module (executable)
+
 module Main where
 
 import Datatypes
@@ -7,10 +8,14 @@ import DMap   (toString)
 import DFA    (fromNFAMulti, flattenToDFA)
 import NFA    (epsilonClosure, fromRegex)
 
+import System.IO (hSetBuffering, stdout, BufferMode(NoBuffering))
+
 import qualified Regex
 
 main :: IO () -- TODO: use MaybeT IO ()
 main = do
+    hSetBuffering stdout NoBuffering
+
     putStr ">> "
     p <- getLine
     case parseReg p of

@@ -1,0 +1,45 @@
+cabal-version:       2.4
+name:                regexp
+version:             0.1
+synopsis:            A minimal regex parser and interpreter.
+license:             GPL-3.0-or-later
+author:              Michal Spano, Philipp-Immanuel Holst
+build-type:          Simple
+
+library regexp-lib
+  exposed-modules: Datatypes
+                 , DMap
+                 , NFA
+                 , DFA
+                 , Parser
+                 , Parsing
+                 , Regex
+
+  hs-source-dirs:    src
+  build-depends: base >=4.14 && <5
+               , containers
+               , mtl
+
+  default-language:  Haskell2010
+
+executable regexp
+  main-is:           Main.hs
+  hs-source-dirs:    app
+
+  build-depends: base >=4.14 && <5
+               , containers
+               , mtl
+               , regexp-lib
+
+  default-language:  Haskell2010
+
+executable regexp-test
+  main-is:           Testing.hs
+  hs-source-dirs:    test
+
+  build-depends: base >=4.14 && <5
+               , containers
+               , mtl
+               , regexp-lib
+
+  default-language:  Haskell2010

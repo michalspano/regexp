@@ -3,7 +3,7 @@
 -- Test suites generated with OpenAI's GPT 5.2 (checked manually by us afterwards).
 -- TODO: offload much of this work to @QuickCheck@.
 
-module Testing where
+module Main where
 
 import Parser      (parseReg)
 import Regex       (match)

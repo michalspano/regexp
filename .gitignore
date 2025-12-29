@@ -1,6 +1,10 @@
 *.dot
 *.swp
-dist-newstyle/
+
 .ghc.environment.aarch64-darwin-9.6.7
-# TODO: fix
-*.cabal
+dist-newstyle/
+.stack-work/
+
+# bin
+regexp
+regexp-test
