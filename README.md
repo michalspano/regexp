@@ -1,8 +1,6 @@
-# Regex Parser \& Interpreter
-
 ## Synopsis
 
-- A regex **parser \& interpreter** for a minimal language (subset of `POSIX`):
+- A regex **parser & interpreter** for a minimal language (subset of `POSIX`):
     ```
     r1,r2 ::= ε | a | . | r1* | r1+ | r1r2 
     ```

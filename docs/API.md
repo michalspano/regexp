@@ -1,5 +1,3 @@
-# Overview
-
 - Our project reads, *parses* and *evaluates* a **regular expression**
 - Two main components:
     - **Parsing**: Tokenizing the string
